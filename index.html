@@ -7,7 +7,6 @@
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f9f9f9; display: flex; flex-direction: column; align-items: center; padding: 20px; color: #000; }
         #game-container { background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 700px; text-align: center; width: 100%; border: 1px solid #ccc; }
         
-        /* Grid styling specifically for black and white line art */
         .grid { display: inline-grid; grid-template-columns: repeat(4, 35px); grid-template-rows: repeat(4, 35px); gap: 0; margin: 10px auto; }
         .cell { width: 35px; height: 35px; box-sizing: border-box; background-color: #fff; }
         
@@ -36,7 +35,7 @@
 <body>
 
 <div id="game-container">
-    <h1>Shape Scrambler</h1>
+    <h1>Question 16 Simulator</h1>
     <p>Which one of the following squares consists of the <strong>same five shapes</strong> as the target square above? (They may be turned over).</p>
     
     <div id="score-board">Round: 1 / 10 &nbsp;|&nbsp; Score: 0</div>
@@ -46,46 +45,26 @@
         <div id="target-grid" class="grid"></div>
     </div>
 
-    <div class="options-container" id="options">
-        </div>
+    <div class="options-container" id="options"></div>
     
     <button id="next-btn" onclick="startRound()">Next Round ➔</button>
 </div>
 
 <script>
-    // Define 5 distinct mathematical arrangements of 5 shapes on a 4x4 grid.
-    // Each number represents a different "piece".
-    const baseGrids = [
-        [ // Set 1: Square, T-shape, L-shape, two 1x2 bars
-            1, 1, 2, 2,
-            1, 1, 2, 3,
-            4, 4, 2, 3,
-            5, 5, 3, 3
-        ],
-        [ // Set 2: 1x4 bar, Square, two 1x3 bars, 1x2 bar
-            1, 1, 1, 2,
-            3, 4, 4, 2,
-            3, 4, 4, 2,
-            3, 5, 5, 2
-        ],
-        [ // Set 3: 1x4 bar, L-shape, T-shape, two 1x2 bars
-            1, 2, 2, 2,
-            1, 3, 3, 2,
-            1, 4, 3, 5,
-            1, 4, 3, 5
-        ],
-        [ // Set 4: Square, S-shape, 1x4 bar, two 1x2 bars
-            1, 1, 2, 3,
-            1, 1, 2, 3,
-            4, 2, 2, 3,
-            4, 5, 5, 3
-        ],
-        [ // Set 5: 1x4 bar, two L-shapes, two 1x2 bars
-            1, 1, 1, 1,
-            2, 2, 3, 3,
-            4, 2, 5, 3,
-            4, 2, 5, 3
-        ]
+    // The exact 5 shapes used: Two 2x2 Squares, one T-Shape, one L-Shape(small), one Dot.
+    const validGrids = [
+        [1,1,2,2,  1,1,2,3,  4,4,3,3,  4,4,5,3], // Layout 1
+        [1,1,4,4,  1,1,4,4,  3,3,3,2,  5,3,2,2], // Layout 2
+        [1,1,2,5,  1,1,2,2,  4,4,2,3,  4,4,3,3], // Layout 3
+        [1,1,3,3,  1,1,2,3,  4,4,2,2,  4,4,2,5]  // Layout 4
+    ];
+
+    // Distractors have at least one wrong shape to ensure they are objectively incorrect.
+    const distractorGrids = [
+        [1,1,2,2,  1,1,3,2,  4,4,3,5,  4,4,3,3], // Has an L-shape(4) instead of a T-shape
+        [1,1,2,2,  1,1,2,3,  4,4,3,3,  5,4,4,3], // Has a Z-shape instead of a Square
+        [1,1,2,2,  1,1,2,3,  4,4,3,3,  6,6,6,3], // Missing a Square, has straight bars
+        [1,1,2,2,  1,1,5,2,  4,4,3,3,  4,4,3,3]  // Has 3 Squares, missing the T-shape
     ];
 
     let currentRound = 1;
@@ -93,7 +72,6 @@
     let correctIndex = 0;
     let isClickable = true;
 
-    // Applies rotations or flips to the grid array
     function transformGrid(grid, type) {
         let newGrid = Array(16).fill(0);
         for(let r=0; r<4; r++){
@@ -101,13 +79,14 @@
                 let val = grid[r*4 + c];
                 let nr = r, nc = c;
                 switch(type) {
-                    case 0: break; // No change
-                    case 1: nr = c; nc = 3 - r; break; // Rotate 90
-                    case 2: nr = 3 - r; nc = 3 - c; break; // Rotate 180
-                    case 3: nr = 3 - c; nc = r; break; // Rotate 270
-                    case 4: nc = 3 - c; break; // Flip Horizontal
-                    case 5: nr = 3 - r; break; // Flip Vertical
-                    case 6: nr = c; nc = r; break; // Diagonal flip
+                    case 0: break;
+                    case 1: nr = c; nc = 3 - r; break;
+                    case 2: nr = 3 - r; nc = 3 - c; break;
+                    case 3: nr = 3 - c; nc = r; break;
+                    case 4: nc = 3 - c; break;
+                    case 5: nr = 3 - r; break;
+                    case 6: nr = c; nc = r; break;
+                    case 7: nr = 3 - c; nc = 3 - r; break;
                 }
                 newGrid[nr*4 + nc] = val;
             }
@@ -115,7 +94,6 @@
         return newGrid;
     }
 
-    // Renders the black line-art borders based on adjacent piece IDs
     function renderLineArt(data, containerId) {
         const container = document.getElementById(containerId);
         container.innerHTML = '';
@@ -125,8 +103,6 @@
                 const cell = document.createElement('div');
                 cell.className = 'cell';
 
-                // Smart Border Logic: Only draw top/left if the adjacent cell is a different piece.
-                // Outer edges are always drawn. This prevents double-thick lines.
                 let bTop = (r === 0 || data[idx] !== data[(r-1)*4 + c]) ? '2px solid #000' : 'none';
                 let bLeft = (c === 0 || data[idx] !== data[r*4 + (c-1)]) ? '2px solid #000' : 'none';
                 let bRight = (c === 3) ? '2px solid #000' : 'none';
@@ -158,89 +134,4 @@
         }
 
         isClickable = true;
-        document.getElementById('next-btn').style.display = 'none';
-        document.getElementById('feedback').innerText = '';
-        document.getElementById('score-board').innerText = `Round: ${currentRound} / 10  |  Score: ${score}`;
-
-        // 1. Pick a random target layout and a random rotation for it
-        let targetLayoutIndex = Math.floor(Math.random() * baseGrids.length);
-        let targetGrid = baseGrids[targetLayoutIndex];
-        let targetTrans = Math.floor(Math.random() * 7);
-        renderLineArt(transformGrid(targetGrid, targetTrans), 'target-grid');
-
-        // 2. Determine the correct answer (same layout, different rotation)
-        let correctTrans;
-        do {
-            correctTrans = Math.floor(Math.random() * 7);
-        } while (correctTrans === targetTrans); // Ensure it looks different
-
-        // 3. Pick 3 distinct distractor layouts
-        let availableDistractors = [0, 1, 2, 3, 4].filter(i => i !== targetLayoutIndex);
-        availableDistractors = shuffle(availableDistractors).slice(0, 3);
-
-        const optionsContainer = document.getElementById('options');
-        optionsContainer.innerHTML = '';
-        correctIndex = Math.floor(Math.random() * 4);
-        
-        let distractorCount = 0;
-
-        for (let i = 0; i < 4; i++) {
-            const optionDiv = document.createElement('div');
-            optionDiv.className = 'option';
-            optionDiv.id = `option-box-${i}`;
-            optionDiv.onclick = () => checkAnswer(i);
-            
-            const label = document.createElement('span');
-            label.className = 'label';
-            label.innerText = String.fromCharCode(65 + i);
-            optionDiv.appendChild(label);
-
-            const gridDiv = document.createElement('div');
-            gridDiv.className = 'grid';
-            gridDiv.id = `grid-${i}`;
-            optionDiv.appendChild(gridDiv);
-            optionsContainer.appendChild(optionDiv);
-
-            if (i === correctIndex) {
-                renderLineArt(transformGrid(targetGrid, correctTrans), `grid-${i}`);
-            } else {
-                let distractorGrid = baseGrids[availableDistractors[distractorCount]];
-                let distractorTrans = Math.floor(Math.random() * 7);
-                renderLineArt(transformGrid(distractorGrid, distractorTrans), `grid-${i}`);
-                distractorCount++;
-            }
-        }
-    }
-
-    function checkAnswer(selectedIndex) {
-        if (!isClickable) return;
-        isClickable = false;
-
-        const feedback = document.getElementById('feedback');
-        const nextBtn = document.getElementById('next-btn');
-
-        for (let i = 0; i < 4; i++) {
-            const box = document.getElementById(`option-box-${i}`);
-            box.classList.add('disabled');
-            if (i === correctIndex) {
-                box.classList.add('correct');
-            } else if (i === selectedIndex && selectedIndex !== correctIndex) {
-                box.classList.add('wrong');
-            }
-        }
-
-        if (selectedIndex === correctIndex) {
-            score++;
-            feedback.innerHTML = '<span class="text-success">Correct! The shapes are an exact match.</span>';
-        } else {
-            feedback.innerHTML = '<span class="text-danger">Incorrect. One or more shapes in this square are different.</span>';
-        }
-
-        currentRound++;
-        nextBtn.style.display = 'block';
-    }
-
-    startRound();
-</script>
-</body>
-</html>
+        document.getElementById('next-btn').style.display = 'none
